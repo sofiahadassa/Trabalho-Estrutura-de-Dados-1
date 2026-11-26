@@ -1,0 +1,583 @@
+#define _POSIX_C_SOURCE 199309L
+
+#include <stdio.h>
+#include <time.h>
+#include <stdlib.h>
+#include <string.h>
+
+int vetor[500000]; //VETOR ORIGINAL
+int copia[500000]; // VETOR COPIA PARA TODOS OS TESTES
+int auxiliar[500000]; // PARA O MERGE_SORT
+
+#define VALOR_MAX 1000001   /* gera valores de 0 a 1.000.000 */
+
+int contagem[VALOR_MAX];
+
+int rand_grande(void) {
+    unsigned int alto  = (unsigned int)(rand() & 0x7FFF);
+    unsigned int baixo = (unsigned int)(rand() & 0x7FFF);
+    return (int)(((alto << 15) | baixo) % VALOR_MAX);
+}
+//###############################################################################//
+// BUBBLE SORT
+
+
+void bubble_sort(int tamanho) {
+    int i, j, aux;
+
+    struct timespec inicio, fim;
+    double tempo;
+
+    memcpy(copia, vetor, tamanho * sizeof(int));   // clone
+
+    clock_gettime(CLOCK_MONOTONIC, &inicio);
+
+    for (i = 0; i < tamanho; i++) {
+        for (j = i + 1; j < tamanho; j++) {
+            if (copia[i] > copia[j]) {
+                aux = copia[i];
+                copia[i] = copia[j];
+                copia[j] = aux;
+            }
+        }
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &fim);
+
+    tempo = (fim.tv_sec - inicio.tv_sec) + (fim.tv_nsec - inicio.tv_nsec) / 1e9;
+    tempo *= 1e3;
+
+   printf("\nTempo de execucao BUBBLE SORT: %f ms\n", tempo);
+   return;
+}
+//###############################################################################//
+// SELECTION SORT
+
+
+void selection_sort(int tamanho) {
+    int i, j, menor, aux;
+
+    memcpy(copia, vetor, tamanho * sizeof(int));   // clone
+
+    struct timespec inicio, fim;
+    double tempo;
+    clock_gettime(CLOCK_MONOTONIC, &inicio);
+
+    for (i = 0; i < tamanho - 1; i++) {
+        menor = i;                      /* assume que o menor esta em i */
+
+        for (j = i + 1; j < tamanho; j++) {   /* procura um menor na parte restante */
+            if (copia[j] < copia[menor]) {
+                menor = j;
+            }
+        }
+
+        if (menor != i) {               /* troca so se necessario */
+            aux = copia[i];
+            copia[i] = copia[menor];
+            copia[menor] = aux;
+        }
+    }
+    clock_gettime(CLOCK_MONOTONIC, &fim);
+    tempo = (fim.tv_sec - inicio.tv_sec) + (fim.tv_nsec - inicio.tv_nsec) / 1e9;
+    tempo *= 1e3;
+    printf("\nTempo de execucao SELECTION SORT: %f ms\n", tempo);
+    return;
+}
+//###############################################################################//
+// INSERTION SORT
+
+
+void insertion_sort(int tamanho) {
+    int i, j, chave;
+
+    memcpy(copia, vetor, tamanho * sizeof(int));   // clone
+
+    struct timespec inicio, fim;
+    double tempo;
+    clock_gettime(CLOCK_MONOTONIC, &inicio);
+
+    for (i = 1; i < tamanho; i++) {
+        chave = copia[i];               /* elemento a ser inserido */
+        j = i - 1;
+
+        /* desloca para a direita os elementos maiores que a chave */
+        while (j >= 0 && copia[j] > chave) {
+            copia[j + 1] = copia[j];
+            j--;
+        }
+
+        copia[j + 1] = chave;           /* coloca a chave no lugar certo */
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &fim);
+    tempo = (fim.tv_sec - inicio.tv_sec) + (fim.tv_nsec - inicio.tv_nsec) / 1e9;
+    tempo *= 1e3;
+    printf("\nTempo de execucao INSERTION SORT: %f ms\n", tempo);
+    return;
+}
+//###############################################################################//
+// MERGE SORT
+
+/* Intercala as metades ordenadas [inicio..meio] e [meio+1..fim] */
+void merge(int inicio, int meio, int fim) {
+    int i, j, k;
+
+    /* copia o trecho para o vetor auxiliar */
+    for (k = inicio; k <= fim; k++) {
+        auxiliar[k] = copia[k];
+    }
+
+    i = inicio;        /* percorre a metade esquerda */
+    j = meio + 1;      /* percorre a metade direita */
+
+    for (k = inicio; k <= fim; k++) {
+        if (i > meio) {                        /* esquerda acabou */
+            copia[k] = auxiliar[j++];
+        } else if (j > fim) {                  /* direita acabou */
+            copia[k] = auxiliar[i++];
+        } else if (auxiliar[i] <= auxiliar[j]) {
+            copia[k] = auxiliar[i++];
+        } else {
+            copia[k] = auxiliar[j++];
+        }
+    }
+}
+
+/* Divide o vetor ao meio, ordena cada metade e intercala */
+void merge_sort_recursivo(int inicio, int fim) {
+    int meio;
+
+    if (inicio < fim) {                        /* mais de 1 elemento */
+        meio = (inicio + fim) / 2;
+
+        merge_sort_recursivo(inicio, meio);
+        merge_sort_recursivo(meio + 1, fim);
+        merge(inicio, meio, fim);
+    }
+}
+
+void merge_sort(int tamanho) {
+    memcpy(copia, vetor, tamanho * sizeof(int));   // clone
+
+    struct timespec inicio, fim;
+    double tempo;
+    clock_gettime(CLOCK_MONOTONIC, &inicio);
+
+    merge_sort_recursivo(0, tamanho - 1);
+
+    clock_gettime(CLOCK_MONOTONIC, &fim);
+    tempo = (fim.tv_sec - inicio.tv_sec) + (fim.tv_nsec - inicio.tv_nsec) / 1e9;
+    tempo *= 1e3;
+    printf("\nTempo de execucao MERGE SORT: %f ms\n", tempo);
+    return;
+}
+
+//###############################################################################//
+// QUICK SORT
+
+void quick_sort_recursivo(int inicio, int fim) {
+    int i = inicio;
+    int j = fim;
+    int pivo = copia[(inicio + fim) / 2];   /* pivo = elemento do meio */
+    int aux;
+
+    while (i <= j) {
+        while (copia[i] < pivo) i++;        /* acha um elemento a esquerda que deveria ir para a direita */
+        while (copia[j] > pivo) j--;        /* acha um elemento a direita que deveria ir para a esquerda */
+
+        if (i <= j) {
+            aux = copia[i];
+            copia[i] = copia[j];
+            copia[j] = aux;
+            i++;
+            j--;
+        }
+    }
+
+    /* ordena as duas partes */
+    if (inicio < j) quick_sort_recursivo(inicio, j);
+    if (i < fim)    quick_sort_recursivo(i, fim);
+}
+
+void quick_sort(int tamanho) {
+    memcpy(copia, vetor, tamanho * sizeof(int));   // clone
+
+    struct timespec inicio, fim;
+    double tempo;
+    clock_gettime(CLOCK_MONOTONIC, &inicio);
+
+    quick_sort_recursivo(0, tamanho - 1);
+
+    clock_gettime(CLOCK_MONOTONIC, &fim);
+    tempo = (fim.tv_sec - inicio.tv_sec) + (fim.tv_nsec - inicio.tv_nsec) / 1e9;
+    tempo *= 1e3;
+    printf("\nTempo de execucao QUICK SORT: %f ms\n", tempo);
+    return;
+}
+
+/* Afunda o elemento da posicao i num heap de tamanho n */
+void heapify(int n, int i) {
+    int maior = i;
+    int esq = 2 * i + 1;
+    int dir = 2 * i + 2;
+    int aux;
+
+    if (esq < n && copia[esq] > copia[maior]) {
+        maior = esq;
+    }
+    if (dir < n && copia[dir] > copia[maior]) {
+        maior = dir;
+    }
+
+    if (maior != i) {                   /* algum filho e maior: troca e continua afundando */
+        aux = copia[i];
+        copia[i] = copia[maior];
+        copia[maior] = aux;
+
+        heapify(n, maior);
+    }
+}
+//###############################################################################//
+// HEAP SORT
+
+void heap_sort(int tamanho) {
+    int i, aux;
+
+    memcpy(copia, vetor, tamanho * sizeof(int));   // clone
+
+    struct timespec inicio, fim;
+    double tempo;
+    clock_gettime(CLOCK_MONOTONIC, &inicio);
+
+    /* Fase 1: constroi o heap maximo (comeca no ultimo pai) */
+    for (i = tamanho / 2 - 1; i >= 0; i--) {
+        heapify(tamanho, i);
+    }
+
+    /* Fase 2: move o maior para o fim e conserta o heap */
+    for (i = tamanho - 1; i > 0; i--) {
+        aux = copia[0];
+        copia[0] = copia[i];
+        copia[i] = aux;
+
+        heapify(i, 0);                  /* heap agora tem i elementos */
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &fim);
+    tempo = (fim.tv_sec - inicio.tv_sec) + (fim.tv_nsec - inicio.tv_nsec) / 1e9;
+    tempo *= 1e3;
+    printf("\nTempo de execucao HEAP SORT: %f ms\n", tempo);
+    return;
+}
+
+void counting_sort(int tamanho) {
+    int i, v, k;
+
+    memcpy(copia, vetor, tamanho * sizeof(int));   // clone
+
+    struct timespec inicio, fim;
+    double tempo;
+    clock_gettime(CLOCK_MONOTONIC, &inicio);
+
+    /* zera a contagem (necessario a cada execucao) */
+    for (i = 0; i < VALOR_MAX; i++) {
+        contagem[i] = 0;
+    }
+
+    /* conta quantas vezes cada valor aparece */
+    for (i = 0; i < tamanho; i++) {
+        contagem[copia[i]]++;
+    }
+
+    /* reescreve o vetor em ordem */
+    k = 0;
+    for (v = 0; v < VALOR_MAX; v++) {
+        while (contagem[v] > 0) {
+            copia[k++] = v;
+            contagem[v]--;
+        }
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &fim);
+    tempo = (fim.tv_sec - inicio.tv_sec) + (fim.tv_nsec - inicio.tv_nsec) / 1e9;
+    tempo *= 1e3;
+    printf("\nTempo de execucao COUNTING SORT: %f ms\n", tempo);
+    return;
+}
+
+//######################################################################//
+// RADIX SORT
+
+void counting_sort_digito(int tamanho, int exp) {
+    int i;
+    int contagem_digito[10] = {0};
+
+    // Conta a quantidade de cada digito
+    for (i = 0; i < tamanho; i++) {
+        int digito = (copia[i] / exp) % 10;
+        contagem_digito[digito]++;
+    }
+
+    // Calcula as posicoes acumuladas
+    for (i = 1; i < 10; i++) {
+        contagem_digito[i] += contagem_digito[i - 1];
+    }
+
+    // Organiza os elementos no vetor auxiliar
+    for (i = tamanho - 1; i >= 0; i--) {
+        int digito = (copia[i] / exp) % 10;
+
+        auxiliar[contagem_digito[digito] - 1] = copia[i];
+
+        contagem_digito[digito]--;
+    }
+
+    // Copia os elementos ordenados de volta
+    for (i = 0; i < tamanho; i++) {
+        copia[i] = auxiliar[i];
+    }
+}
+
+void radix_sort(int tamanho) {
+    int maior;
+    int i, exp;
+
+    memcpy(copia, vetor, tamanho * sizeof(int)); // clone
+
+    maior = copia[0];
+
+    struct timespec inicio, fim;
+    double tempo;
+
+    clock_gettime(CLOCK_MONOTONIC, &inicio);
+
+    // Encontra o maior elemento do vetor
+    for (i = 1; i < tamanho; i++) {
+        if (copia[i] > maior) {
+            maior = copia[i];
+        }
+    }
+
+    // Ordena considerando cada casa decimal
+    for (exp = 1; maior / exp > 0; exp *= 10) {
+        counting_sort_digito(tamanho, exp);
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &fim);
+
+    tempo = (fim.tv_sec - inicio.tv_sec) + (fim.tv_nsec - inicio.tv_nsec) / 1e9;
+    tempo *= 1e3;
+
+    printf("\nTempo de execucao RADIX SORT: %.10f ms\n", tempo);
+
+    return;
+}
+
+//###############################################################################//
+// BUCKET SORT
+
+#define NUM_BALDES 1000
+
+// Estrutura para armazenar os elementos dos baldes
+typedef struct No {
+    int valor;
+    struct No *proximo;
+} No;
+
+
+void bucket_sort(int tamanho) {
+    int i, indice, k = 0;
+
+    No *baldes[NUM_BALDES] = {NULL};
+    No *novo, *atual, *anterior;
+    No *nos;
+
+    memcpy(copia, vetor, tamanho * sizeof(int)); // clone
+
+    // Aloca memoria antes da medicao
+    nos = (No *)malloc(tamanho * sizeof(No));
+
+    if (nos == NULL) {
+        printf("Erro ao alocar memoria!\n");
+        return;
+    }
+
+    struct timespec inicio, fim;
+    double tempo;
+
+    clock_gettime(CLOCK_MONOTONIC, &inicio);
+
+    // Distribui os elementos nos baldes
+    for (i = 0; i < tamanho; i++) {
+
+        indice = (copia[i] * NUM_BALDES) / VALOR_MAX;
+
+        if (indice >= NUM_BALDES) {
+            indice = NUM_BALDES - 1;
+        }
+
+        // Utiliza um no ja alocado
+        novo = &nos[i];
+
+        novo->valor = copia[i];
+        novo->proximo = NULL;
+
+        // Insere o elemento no balde em ordem crescente
+        anterior = NULL;
+        atual = baldes[indice];
+
+        while (atual != NULL && atual->valor <= novo->valor) {
+            anterior = atual;
+            atual = atual->proximo;
+        }
+
+        if (anterior == NULL) {
+            novo->proximo = baldes[indice];
+            baldes[indice] = novo;
+        } else {
+            novo->proximo = atual;
+            anterior->proximo = novo;
+        }
+    }
+
+    // Junta todos os baldes no vetor
+    for (i = 0; i < NUM_BALDES; i++) {
+
+        atual = baldes[i];
+
+        while (atual != NULL) {
+            copia[k++] = atual->valor;
+            atual = atual->proximo;
+        }
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &fim);
+
+    tempo = (fim.tv_sec - inicio.tv_sec) +
+            (fim.tv_nsec - inicio.tv_nsec) / 1e9;
+
+    tempo *= 1e3;
+
+    // Libera memoria depois da medicao
+    free(nos);
+
+    printf("\nTempo de execucao BUCKET SORT: %f ms\n", tempo);
+
+    return;
+}
+
+//###############################################################################//
+// MAIN
+
+int main() {
+    int opcao_ordenacao, opcao_vetor;
+    int tamanho, i;
+
+    do {
+        printf("\n========== MENU DE ORDENACAO ==========\n");
+        printf("1 - Bubble Sort\n");
+        printf("2 - Insertion Sort\n");
+        printf("3 - Selection Sort\n");
+        printf("4 - Merge Sort\n");
+        printf("5 - Quick Sort\n");
+        printf("6 - Heap Sort\n");
+        printf("7 - Counting Sort\n");
+        printf("8 - Radix Sort\n");
+        printf("9 - Bucket Sort\n");
+        printf("======================================\n");
+
+        printf("\n========== MENU DE VETORES ==========\n");
+        printf("1 - Vetor [1.000] Unidades\n");
+        printf("2 - Vetor [10.000] Unidades\n");
+        printf("3 - Vetor [50.000] Unidades\n");
+        printf("4 - Vetor [100.000] Unidades\n");
+        printf("5 - Vetor [500.000] Unidades\n");
+        printf("=====================================\n");
+        printf("0 0 - Sair\n");
+
+        printf("\nSelecione a ordenacao e o vetor:\n");
+        scanf("%d %d", &opcao_ordenacao, &opcao_vetor);
+
+        if (opcao_ordenacao == 0 || opcao_vetor == 0) {
+            printf("Saindo...\n");
+            break;
+        }
+
+        switch (opcao_vetor) {
+            case 1:
+                tamanho = 1000;
+                break;
+
+            case 2:
+                tamanho = 10000;
+                break;
+
+            case 3:
+                tamanho = 50000;
+                break;
+
+            case 4:
+                tamanho = 100000;
+                break;
+
+            case 5:
+                tamanho = 500000;
+                break;
+
+            default:
+                printf("Opcao de vetor invalida!\n");
+                continue;
+        }
+
+        srand(42);
+
+        for (i = 0; i < tamanho; i++) {
+            vetor[i] = rand_grande();
+        }
+
+        switch (opcao_ordenacao) {
+            case 1:
+                bubble_sort(tamanho);
+                break;
+
+            case 2:
+                insertion_sort(tamanho);
+                break;
+
+            case 3:
+                selection_sort(tamanho);
+                break;
+
+            case 4:
+                merge_sort(tamanho);
+                break;
+
+            case 5:
+                quick_sort(tamanho);
+                break;
+
+            case 6:
+                heap_sort(tamanho);
+                break;
+
+            case 7:
+                counting_sort(tamanho);
+                break;
+            
+            case 8:
+                radix_sort(tamanho);
+                break;
+            
+            case 9:
+                bucket_sort(tamanho);
+                break;
+            
+            default:
+                printf("Opcao de ordenacao invalida!\n");
+        }
+
+    } while (1);
+
+    return 0;
+}
